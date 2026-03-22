@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="description" content="DTA6 Unity WebGL page with split asset loading and GamePush support.">
+  <meta name="robots" content="noindex, nofollow">
+  <title>DTA6</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/greeniYT/dta6@main/TemplateData/style.css">
+  <script src="https://cdn.jsdelivr.net/gh/greeniYT/dta6@main/TemplateData/gamepush-unity.js"></script>
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #05070d;
+    }
+
+    body {
+      position: relative;
+    }
+
+    canvas:focus {
+      outline: none;
+    }
+
+    #unity-container,
+    #unity-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #loading-cover {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(6, 9, 16, 0.84);
+      z-index: 20;
+    }
+
+    #unity-loading-bar {
+      width: min(420px, calc(100% - 32px));
+    }
+  </style>
+  <script>
+    const projectId = "10947";
+    const publicToken = "1jUALf4gEH9NVcmbDHHMyFvrKj9BkqrY";
+    const showPreloaderAd = "true";
+    const overlayBackgroundColor = "";
+    const progressBarFillColor = "";
+    const progressBarBackgroundColor = "";
+    const progressBarBorderColor = "";
+    const autocallGameReady = "";
+    const cdnRoot = "https://cdn.jsdelivr.net/gh/greeniYT/dta6@main";
+    const buildUrl = `${cdnRoot}/Build`;
+    const gamePushCandidates = [
+      `${cdnRoot}/gamepush.js`,
+      `${cdnRoot}/gamepush.js`,
+      `${cdnRoot}/gamepush.js`
+    ];
+  </script>
+  <script>
+    const _unityAwaiter = {};
+    _unityAwaiter.ready = new Promise((resolve, reject) => {
+      _unityAwaiter.done = resolve;
+      _unityAwaiter.abort = reject;
+    });
+
+    const _gpAwaiter = {};
+    _gpAwaiter.ready = new Promise((resolve) => {
+      _gpAwaiter.done = resolve;
+    });
+
+    window.unityInstance = null;
+    window.onGPError = () => _gpAwaiter.done();
+
+    window.onGPInit = async (gp) => {
+      if (showPreloaderAd === "true" || showPreloaderAd === "1") {
+        gp.ads.showPreloader();
+      }
+
+      window.GamePush = new GamePushUnity(gp);
+      gp.player.ready.finally(_gpAwaiter.done);
+
+      await _unityAwaiter.ready;
+
+      if (autocallGameReady != null && parseFloat(autocallGameReady) > 0) {
+        window.setTimeout(() => gp.gameStart(), parseFloat(autocallGameReady));
+      }
+    };
+  </script>
+  <script>
+    ((global, sources, currentProjectId, currentPublicToken) => {
+      const loadNext = () => {
+        const script = document.createElement("script");
+        script.src = `${sources[0]}?projectId=${currentProjectId}&publicToken=${currentPublicToken}`;
+        script.onerror = () => {
+          sources.shift();
+          if (sources.length > 0) {
+            loadNext();
+            script.remove();
+          } else if ("onGPError" in global) {
+            global.onGPError();
+          }
+        };
+        document.head.appendChild(script);
+      };
+
+      loadNext();
+    })(window, [...gamePushCandidates], projectId, publicToken);
+  </script>
+</head>
+<body class="light">
+  <div id="unity-container" class="unity-desktop">
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+  </div>
+
+  <div id="loading-cover">
+    <div id="unity-loading-bar">
+      <div id="unity-logo"><img src="https://cdn.jsdelivr.net/gh/greeniYT/dta6@main/logo.png" alt="DTA6"></div>
+      <div id="unity-progress-bar-empty" style="display: none;">
+        <div id="unity-progress-bar-full"></div>
+      </div>
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      const parts = [
+        `${buildUrl}/cb329eb1ef692e19f43f5fddf5d5b128.data.unityweb.part1`,
+        `${buildUrl}/cb329eb1ef692e19f43f5fddf5d5b128.data.unityweb.part2`
+      ];
+
+      let mergedUrl = "";
+
+      try {
+        const responses = await Promise.all(
+          parts.map(async (url) => {
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`Failed to load part: ${url}`);
+            }
+            return response.arrayBuffer();
+          })
+        );
+
+        const mergedBlob = new Blob(responses, { type: "application/octet-stream" });
+        mergedUrl = URL.createObjectURL(mergedBlob);
+
+        const loaderUrl = `${buildUrl}/Builds.loader.js`;
+        const config = {
+          dataUrl: mergedUrl,
+          frameworkUrl: `${buildUrl}/3dffb3ed1e706df32d3b7b014ff04f0b.js.unityweb`,
+          codeUrl: `${buildUrl}/efd904c4e9e86d7a5592528dd74dfe59.wasm.unityweb`,
+          streamingAssetsUrl: "StreamingAssets",
+          companyName: "vsegon",
+          productName: "DTA6",
+          productVersion: "1"
+        };
+
+        const container = document.getElementById("unity-container");
+        const canvas = document.getElementById("unity-canvas");
+        const loadingCover = document.getElementById("loading-cover");
+        const progressBarEmpty = document.getElementById("unity-progress-bar-empty");
+        const progressBarFull = document.getElementById("unity-progress-bar-full");
+        const spinner = document.querySelector(".spinner");
+
+        if (overlayBackgroundColor !== "-" && overlayBackgroundColor.trim() !== "") {
+          canvas.style.background = overlayBackgroundColor;
+        }
+
+        if (progressBarFillColor !== "-" && progressBarFillColor.trim() !== "") {
+          progressBarFull.style.background = progressBarFillColor;
+        }
+
+        if (progressBarBackgroundColor !== "-" && progressBarBackgroundColor.trim() !== "") {
+          progressBarEmpty.style.background = progressBarBackgroundColor;
+        }
+
+        if (progressBarBorderColor !== "-" && progressBarBorderColor.trim() !== "") {
+          progressBarEmpty.style.borderColor = progressBarBorderColor;
+        }
+
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+          container.className = "unity-mobile";
+        }
+
+        loadingCover.style.display = "flex";
+
+        const unityLoader = document.createElement("script");
+        unityLoader.src = loaderUrl;
+        unityLoader.onload = async () => {
+          await _gpAwaiter.ready;
+          createUnityInstance(canvas, config, (progress) => {
+            if (spinner) {
+              spinner.style.display = "none";
+            }
+            progressBarEmpty.style.display = "";
+            progressBarFull.style.width = `${100 * progress}%`;
+          }).then((unityInstance) => {
+            window.unityInstance = unityInstance;
+            _unityAwaiter.done(unityInstance);
+            loadingCover.style.display = "none";
+          }).catch((message) => {
+            _unityAwaiter.abort(message);
+            loadingCover.style.display = "none";
+            alert(message);
+          });
+        };
+        unityLoader.onerror = () => {
+          const message = "Failed to load the DTA6 Unity loader script.";
+          _unityAwaiter.abort(message);
+          loadingCover.style.display = "none";
+          alert(message);
+        };
+
+        document.body.appendChild(unityLoader);
+
+        document.addEventListener("pointerdown", () => {
+          container.focus();
+          window.focus();
+          canvas.focus();
+        });
+
+        window.addEventListener("pagehide", () => {
+          if (mergedUrl) {
+            URL.revokeObjectURL(mergedUrl);
+          }
+        }, { once: true });
+      } catch (error) {
+        console.error("Error loading game data:", error);
+        alert("Failed to load game: " + error.message);
+        _unityAwaiter.abort(error);
+      }
+    })();
+  </script>
+
+  <script
+    defer
+    src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015"
+    integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ=="
+    data-cf-beacon='{"version":"2024.11.0","token":"466cade843754106bbf20c4f18f202b6","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}'
+    crossorigin="anonymous"
+  ></script>
+</body>
+</html>
